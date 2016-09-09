@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Address book</title>
+
+  <style>
+    body, button {
+      font-family: Verdana, Arial, sans-serif;  
+      font-size: 14px;
+    }
+    /* Hide contacts list by default */
+    .contacts-list {
+      display: none;
+    }
+    #contacts {
+      width: 500px;
+      height: 200px;
+      font-size: 1.1em;
+    }
+    .form-input {
+      margin-bottom: 10px;
+    }
+    .form-input label {
+      display: inline-block;
+      width: 100px;
+    }
+    button[type="submit"] {
+      font-size:1em;
+    }
+    .validation-msg {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="contacts-list">
+    Sort by: 
+    <button type="button" class="sort-btn" data-sort-key="full_name">Name</button>
+    <button type="button" class="sort-btn" data-sort-key="phone">Telephone</button>
+    <button type="button" class="sort-btn" data-sort-key="last_name">Last name</button>
+    <button type="button" class="sort-btn" data-sort-key="email">Email</button>
+    <br />
+    <select multiple id="contacts"></select>
+    <br />
+    <button type="button" class="delete-btn">Delete</button>
+  </div>
+
+  <h2>Add a contact</h2>
+
+  <p class="validation-msg"></p>
+
+  <div class="form-input">
+    <label for="first_name">First name</label>
+    <input type="text" id="first_name" />
+  </div>
+  <div class="form-input">
+    <label for="last_name">Last name</label>
+    <input type="text" id="last_name" />
+  </div>
+  <div class="form-input">
+    <label for="phone">Telephone</label>
+    <input type="tel" id="phone" placeholder="(647) 755-3322" />
+  </div>
+  <div class="form-input">
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="user@domain.com" />
+  </div>
+
+  <button type="submit">Add</button>
+  
+  <script>
+  (function() {
+    'use strict';
+
+    // Initial variables defined
+    var contacts = [];
+    var currentSortBy = null;
+
+    // Contact object with its properties and methods
+    var Contact = function (first_name, last_name, phone, email) {
+
+      this.id = Math.random();
+      this.first_name = first_name;
+      this.last_name = last_name;
+      this.full_name = this.first_name + ' ' + this.last_name;
+      this.phone = phone;
+      this.email = email;
+
+      // 
+      // Validators
+      // 
+      this.validateFirstName = function () {
+        return /^[A-Z][-'a-zA-Z]+$/.test(this.first_name)
+      };
+      this.validateLastName = function () {
+        return /^[A-Z][-'a-zA-Z]+$/.test(this.last_name)
+      };
+      this.validatePhone = function () {
+        return /^\(?[0-9]{3}(\-|\)|\.) ?[0-9]{3}(-|\.)[0-9]{4}$/.test(this.phone)
+      };
+      this.validateEmail = function () {
+        return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,3}$/.test(this.email)
+      };
+
+      // Validate input values
+      if (!this.validateFirstName()) {
+        throw new Error('Invalid First name. It should start with a capital letter. Example: George');
+      } else if (!this.validateLastName()) {
+        throw new Error('Invalid Last name. It sould start with a capital letter. Example: Borunov');
+      } else if (!this.validatePhone()) {
+        throw new Error('Invalid Telephone. Correct format would be 647.987.6543');
+      } else if (!this.validateEmail()) {
+        throw new Error('Invalid Email');
+      }
+
+      // Returns assigned ID of the contact
+      this.getId = function () {
+        return this.id;
+      };
+      // Returns full name of the contact
+      this.getFullName = function () {
+        return this.full_name;
+      };
+      // Returns telephone number of the contact
+      this.getPhone = function () {
+        return this.phone;
+      };
+      // Returns email of the contact
+      this.getEmail = function () {
+        return this.email;
+      };
+      // Returns a string with all the contact's data
+      this.print = function () {
+        return this.getFullName() + ' / ' + this.getPhone() + ' / ' + this.getEmail();
+      };
+    };
+
+    // Collects a new contact data from the form and returns in a form of an object
+    var getNewContact = function () {
+      var first_name  = document.getElementById('first_name').value;
+      var last_name   = document.getElementById('last_name').value;
+      var phone       = document.getElementById('phone').value;
+      var email       = document.getElementById('email').value;
+
+      return {
+        first_name,
+        last_name,
+        phone,
+        email
+      };
+    };
+
+    // Clears values in the new contact form 
+    var clearForm = function () {
+      document.getElementById('first_name').value = '';
+      document.getElementById('last_name').value  = '';
+      document.getElementById('phone').value      = '';
+      document.getElementById('email').value      = '';
+    };
+
+    // Clears select element, removes all options
+    var clearContacts = function () {
+      var select = document.getElementById('contacts');
+      while(select.firstChild) {
+        select.removeChild(select.firstChild);
+      }
+    };
+
+    // A custom sort function that sorts contacts by a chosen key
+    var sortContacts = function (a, b) {
+      if (a[currentSortBy] < b[currentSortBy]) {
+        return -1;
+      } else if (a[currentSortBy] > b[currentSortBy]) {
+        return 1;
+      }
+      return 0;
+    };
+
+    // Renders contacts list
+    var renderContacts = function () {
+      // Adds a new option to the select element and assigns its value and content based on a contact's data
+      var appendOptions = function (contact, i) {
+        var select = document.getElementById('contacts');
+        var newOption = document.createElement('option');
+        newOption.value = contact.getId();
+        newOption.innerText = contact.print();
+        select.appendChild(newOption);
+      }
+
+      // Clears current select options
+      clearContacts();
+
+      // If currentSortBy is defined then sort contacts before rendering, otherwise just leave it as is
+      if (currentSortBy) {
+        contacts.sort(sortContacts).forEach(appendOptions);
+      } else {
+        contacts.forEach(appendOptions);
+      }
+      // Makes contacts list visible if at least one contact available in it
+      document.getElementsByClassName('contacts-list')[0].style.display = contacts.length ? 'block' : 'none';
+    };
+
+    // Removes an error message
+    var clearErrorMessage = function () {
+      document.getElementsByClassName('validation-msg')[0].innerText = '';
+    }
+    // Shows an error message above the adding contact form
+    var showErrorMessage = function (msg) {
+      document.getElementsByClassName('validation-msg')[0].innerText = msg;
+    };
+
+    // 
+    // Event Handlers
+    // 
+
+    // A handle for adding a new contact
+    var onAddContact = function () {
+      // Collects data from the form
+      var data = getNewContact();
+      // Create an instance of the contact object and passes data from the form to it
+      try {
+        var newContact = new Contact(data.first_name, data.last_name, data.phone, data.email);
+        // Adds the contact instance to an array of contacts
+        contacts.push(newContact);
+        // Renders contacts list in select element
+        renderContacts();
+        // Clears the form to make it ready for the next input
+        clearForm();
+        clearErrorMessage();
+      } catch (error) {
+        showErrorMessage(error.message);
+      }
+    };
+
+    // A handler to remove a contact from the list
+    var onRemoveContact = function () {
+      var selectedOptions = document.getElementById('contacts').selectedOptions;
+      var selectedIds = [];
+      for (var i = 0; i < selectedOptions.length; i++) {
+        selectedIds.push(+selectedOptions[i].value);        
+      }
+      // Removes selected contacts from the list
+      contacts = contacts.filter(function (contact) {
+        return selectedIds.indexOf(contact.getId()) === -1;
+      });
+      // Renders an updated contacts list
+      renderContacts();
+    };
+
+    // A handler to set the currentSortBy key 
+    var onSort = function (e) {
+      var btn = e.target;
+      var sortKey = btn.getAttribute('data-sort-key');
+      currentSortBy = sortKey;
+      renderContacts()
+    };
+
+    // Adds event listeners to buttons
+    document.querySelector('button[type="submit"]').addEventListener('click', onAddContact); // A new contact add button
+    document.querySelector('button.delete-btn').addEventListener('click', onRemoveContact); // Delete selected contacts button
+    var sortButtons = document.querySelectorAll('button.sort-btn'); 
+    sortButtons.forEach(function (btn) {
+      btn.addEventListener('click', onSort); // Sort by a key button
+    });
+  }());
+  </script>
+</body>
+</html>
